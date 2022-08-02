@@ -106,7 +106,8 @@ class FilePersistence(PersistenceHandler):
             logging.info("Downloaded DRAIN model file from Minio")
         except Exception as e:
             logging.error("Cannot currently obtain DRAIN model file")
-        if not os.path.exists(self.file_path):
-            return None
-
-        return pathlib.Path(self.file_path).read_bytes()
+        return (
+            pathlib.Path(self.file_path).read_bytes()
+            if os.path.exists(self.file_path)
+            else None
+        )

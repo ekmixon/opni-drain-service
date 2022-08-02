@@ -48,7 +48,7 @@ class TemplateMiner:
 
         self.persistence_handler = persistence_handler
 
-        param_str = self.config.mask_prefix + "*" + self.config.mask_suffix
+        param_str = f"{self.config.mask_prefix}*{self.config.mask_suffix}"
         self.drain = Drain(
             sim_th=self.config.drain_sim_th,
             depth=self.config.drain_depth,
@@ -93,9 +93,7 @@ class TemplateMiner:
 
         self.drain = drain
         logger.info(
-            "Restored {} clusters with {} messages".format(
-                len(drain.clusters), drain.get_total_cluster_size()
-            )
+            f"Restored {len(drain.clusters)} clusters with {drain.get_total_cluster_size()} messages"
         )
 
     def save_state(self, snapshot_reason):
@@ -138,8 +136,9 @@ class TemplateMiner:
 
         if self.persistence_handler is not None:
             self.profiler.start_section("save_state")
-            snapshot_reason = self.get_snapshot_reason(change_type, cluster.cluster_id)
-            if snapshot_reason:
+            if snapshot_reason := self.get_snapshot_reason(
+                change_type, cluster.cluster_id
+            ):
                 self.save_state(snapshot_reason)
                 self.last_save_time = time.time()
             self.profiler.end_section()
@@ -156,15 +155,17 @@ class TemplateMiner:
         :param log_message: log message to match
         :return: Matched cluster or None of no match found.
         """
-        matched_cluster = self.drain.match(masked_content)
-        return matched_cluster
+        return self.drain.match(masked_content)
 
     def get_parameter_list(self, log_template: str, content: str):
         escaped_prefix = re.escape(self.config.mask_prefix)
         escaped_suffix = re.escape(self.config.mask_suffix)
         template_regex = re.sub(
-            escaped_prefix + r".+?" + escaped_suffix, self.drain.param_str, log_template
+            f"{escaped_prefix}.+?{escaped_suffix}",
+            self.drain.param_str,
+            log_template,
         )
+
         if self.drain.param_str not in template_regex:
             return []
         template_regex = re.escape(template_regex)

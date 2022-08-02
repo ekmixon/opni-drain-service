@@ -64,8 +64,7 @@ async def train_and_inference(incoming_logs_to_train_queue, fail_keywords_str):
         payload_data_df = await incoming_logs_to_train_queue.get()
         inferencing_results = []
         for index, row in payload_data_df.iterrows():
-            log_message = row["masked_log"]
-            if log_message:
+            if log_message := row["masked_log"]:
                 result = template_miner.add_log_message(log_message)
                 d = {
                     "_id": row["_id"],

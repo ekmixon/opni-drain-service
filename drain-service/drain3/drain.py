@@ -116,11 +116,9 @@ class Drain:
 
             current_depth += 1
 
-        # get best match among all clusters with same prefix, or None if no match is above sim_th
-        cluster = self.fast_match(
+        return self.fast_match(
             parent_node.cluster_ids, tokens, sim_th, include_params
         )
-        return cluster
 
     def add_seq_to_prefix_tree(self, root_node, cluster: LogCluster):
         token_count_str = str(len(cluster.log_template_tokens))
@@ -151,41 +149,37 @@ class Drain:
                 break
 
             # if token not matched in this layer of existing tree.
-            if token not in parent_node.key_to_child_node:
-                if not self.has_numbers(token):
-                    if self.param_str in parent_node.key_to_child_node:
-                        if len(parent_node.key_to_child_node) < self.max_children:
-                            new_node = Node()
-                            parent_node.key_to_child_node[token] = new_node
-                            parent_node = new_node
-                        else:
-                            parent_node = parent_node.key_to_child_node[self.param_str]
-                    else:
-                        if len(parent_node.key_to_child_node) + 1 < self.max_children:
-                            new_node = Node()
-                            parent_node.key_to_child_node[token] = new_node
-                            parent_node = new_node
-                        elif (
-                            len(parent_node.key_to_child_node) + 1 == self.max_children
-                        ):
-                            new_node = Node()
-                            parent_node.key_to_child_node[self.param_str] = new_node
-                            parent_node = new_node
-                        else:
-                            parent_node = parent_node.key_to_child_node[self.param_str]
+            if token in parent_node.key_to_child_node:
+                parent_node = parent_node.key_to_child_node[token]
 
-                else:
-                    if self.param_str not in parent_node.key_to_child_node:
+            elif not self.has_numbers(token):
+                if self.param_str in parent_node.key_to_child_node:
+                    if len(parent_node.key_to_child_node) < self.max_children:
                         new_node = Node()
-                        parent_node.key_to_child_node[self.param_str] = new_node
+                        parent_node.key_to_child_node[token] = new_node
                         parent_node = new_node
                     else:
                         parent_node = parent_node.key_to_child_node[self.param_str]
+                elif len(parent_node.key_to_child_node) + 1 < self.max_children:
+                    new_node = Node()
+                    parent_node.key_to_child_node[token] = new_node
+                    parent_node = new_node
+                elif (
+                    len(parent_node.key_to_child_node) + 1 == self.max_children
+                ):
+                    new_node = Node()
+                    parent_node.key_to_child_node[self.param_str] = new_node
+                    parent_node = new_node
+                else:
+                    parent_node = parent_node.key_to_child_node[self.param_str]
 
-            # if the token is matched
+            elif self.param_str in parent_node.key_to_child_node:
+                parent_node = parent_node.key_to_child_node[self.param_str]
+
             else:
-                parent_node = parent_node.key_to_child_node[token]
-
+                new_node = Node()
+                parent_node.key_to_child_node[self.param_str] = new_node
+                parent_node = new_node
             current_depth += 1
 
     # seq1 is template
@@ -219,8 +213,6 @@ class Drain:
         :param include_params: consider tokens matched to wildcard parameters in similarity treshold.
         :return: Best match cluster or None
         """
-        match_cluster = None
-
         max_sim = -1
         max_param_count = -1
         max_cluster = None
@@ -241,10 +233,7 @@ class Drain:
                 max_param_count = param_count
                 max_cluster = cluster
 
-        if max_sim >= sim_th:
-            match_cluster = max_cluster
-
-        return match_cluster
+        return max_cluster if max_sim >= sim_th else None
 
     def create_template(self, seq1, seq2):
         assert len(seq1) == len(seq2)
@@ -262,11 +251,7 @@ class Drain:
     def print_node(self, token, node, depth, file):
         out_str = "\t" * depth
 
-        if depth < 2:
-            out_str += "<" + str(token) + ">"
-        else:
-            out_str += token
-
+        out_str += f"<{str(token)}>" if depth < 2 else token
         print(out_str, file=file)
 
         for token, child in node.key_to_child_node.items():
@@ -276,8 +261,7 @@ class Drain:
         content = content.strip()
         for delimiter in self.extra_delimiters:
             content = content.replace(delimiter, " ")
-        content_tokens = content.split()
-        return content_tokens
+        return content.split()
 
     def add_log_message(self, content: str):
         content_tokens = self.get_content_as_tokens(content)
@@ -330,11 +314,7 @@ class Drain:
         :return: Matched cluster or None of no match found.
         """
         content_tokens = self.get_content_as_tokens(content)
-        match_cluster = self.tree_search(self.root_node, content_tokens, 1.0, True)
-        return match_cluster
+        return self.tree_search(self.root_node, content_tokens, 1.0, True)
 
     def get_total_cluster_size(self):
-        size = 0
-        for c in self.id_to_cluster.values():
-            size += c.size
-        return size
+        return sum(c.size for c in self.id_to_cluster.values())

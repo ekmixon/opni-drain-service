@@ -74,7 +74,7 @@ class SimpleProfiler(Profiler):
         now = time.time()
 
         section_name = name
-        if not name:
+        if not section_name:
             section_name = self.last_started_section_name
 
         if not section_name:
